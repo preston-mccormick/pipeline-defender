@@ -74,9 +74,31 @@ class Game {
         this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
         this.sounds = {
             zap: this.createSound(800, 0.1, 'sine'),
+            zapHit: this.createZapHitSound(),
             damage: this.createSound(200, 0.3, 'sawtooth'),
             levelUp: this.createSound(600, 0.5, 'sine'),
             explosion: this.createSound(150, 1.0, 'sawtooth')
+        };
+    }
+    
+    createZapHitSound() {
+        return () => {
+            const oscillator = this.audioContext.createOscillator();
+            const gainNode = this.audioContext.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(this.audioContext.destination);
+            
+            // Create a more complex zap hit sound
+            oscillator.frequency.setValueAtTime(1200, this.audioContext.currentTime);
+            oscillator.frequency.exponentialRampToValueAtTime(400, this.audioContext.currentTime + 0.2);
+            oscillator.type = 'sawtooth';
+            
+            gainNode.gain.setValueAtTime(0.4, this.audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.2);
+            
+            oscillator.start(this.audioContext.currentTime);
+            oscillator.stop(this.audioContext.currentTime + 0.2);
         };
     }
     
@@ -158,6 +180,9 @@ class Game {
                 this.particles.push(new ZapEffect(projectile.x, projectile.y));
                 this.projectiles.splice(i, 1);
                 this.score += 10;
+                
+                // Play zap hit sound
+                this.sounds.zapHit();
             }
         }
     }
@@ -183,6 +208,9 @@ class Game {
         
         // Update technician
         this.technician.update(this.keys, this.mouseX, this.width);
+        
+        // Update pipeline
+        this.pipeline.update();
         
         // Update projectiles
         for (let i = this.projectiles.length - 1; i >= 0; i--) {
@@ -420,11 +448,22 @@ class Pipeline {
         this.health -= amount;
         if (this.health < 0) this.health = 0;
         
-        // Add crack
-        this.cracks.push({
-            x: Math.random() * this.width,
-            width: Math.random() * 20 + 10,
-            depth: Math.random() * 5 + 2
+        // Add crack based on damage amount
+        const crackCount = Math.ceil(amount / 5);
+        for (let i = 0; i < crackCount; i++) {
+            this.cracks.push({
+                x: Math.random() * this.width,
+                width: Math.random() * 20 + 10,
+                depth: Math.random() * 5 + 2,
+                age: 0
+            });
+        }
+    }
+    
+    update() {
+        // Age cracks for gradual corrosion effect
+        this.cracks.forEach(crack => {
+            crack.age += 0.1;
         });
     }
     
@@ -449,19 +488,51 @@ class Pipeline {
             }
         }
         
-        // Draw cracks
-        ctx.strokeStyle = '#2F4F4F';
-        ctx.lineWidth = 2;
+        // Draw cracks with aging effect
         this.cracks.forEach(crack => {
+            const age = Math.min(crack.age, 10);
+            const alpha = Math.min(age / 5, 1);
+            const width = crack.width * (1 + age * 0.1);
+            const depth = crack.depth * (1 + age * 0.2);
+            
+            ctx.strokeStyle = `rgba(47, 79, 79, ${alpha})`;
+            ctx.lineWidth = 2 + age * 0.5;
             ctx.beginPath();
             ctx.moveTo(crack.x, this.pipelineY);
-            ctx.lineTo(crack.x + crack.width, this.pipelineY + crack.depth);
+            ctx.lineTo(crack.x + width, this.pipelineY + depth);
             ctx.stroke();
         });
         
         // Draw pipeline top
         ctx.fillStyle = '#708090';
         ctx.fillRect(0, this.pipelineY, this.width, 10);
+        
+        // Draw health bar above pipeline
+        const barWidth = 200;
+        const barHeight = 15;
+        const barX = (this.width - barWidth) / 2;
+        const barY = this.pipelineY - 30;
+        
+        // Background
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+        ctx.fillRect(barX, barY, barWidth, barHeight);
+        
+        // Health bar
+        const healthWidth = (this.health / 100) * barWidth;
+        const healthColor = this.health > 60 ? '#00FF00' : this.health > 30 ? '#FFFF00' : '#FF0000';
+        ctx.fillStyle = healthColor;
+        ctx.fillRect(barX, barY, healthWidth, barHeight);
+        
+        // Border
+        ctx.strokeStyle = '#FFFFFF';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(barX, barY, barWidth, barHeight);
+        
+        // Health text
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = '12px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(`Pipeline Health: ${Math.ceil(this.health)}%`, this.width / 2, barY - 5);
     }
 }
 
@@ -473,7 +544,7 @@ class Projectile {
         this.speed = speed;
         this.size = 20;
         this.damage = type === 'rust' ? 15 : 10;
-        this.color = type === 'rust' ? '#8B4513' : '#87CEEB';
+        this.color = type === 'rust' ? '#8B4513' : '#1E90FF';
         this.wiggleOffset = 0;
         this.wiggleSpeed = 0.1;
         this.originalX = x;
