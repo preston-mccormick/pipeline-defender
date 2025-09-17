@@ -121,6 +121,10 @@ class Game {
         this.projectileSpeed = 2;
         this.projectileSpawnRate = 0.02;
         
+        // Reset pipeline
+        this.pipeline.health = 100;
+        this.pipeline.cracks = [];
+        
         document.getElementById('gameOverScreen').style.display = 'none';
         document.getElementById('pauseBtn').textContent = 'Pause';
         this.updateUI();
@@ -138,15 +142,18 @@ class Game {
         this.zapCooldown = 10;
         this.sounds.zap();
         
-        // Check for nearby projectiles
+        const caneTipX = this.technician.x + 10;
+        const caneTipY = this.technician.y - this.technician.height - 30;
+        
+        // Check for projectiles in lightning bolt path (wider area above technician)
         for (let i = this.projectiles.length - 1; i >= 0; i--) {
             const projectile = this.projectiles[i];
-            const distance = Math.sqrt(
-                Math.pow(projectile.x - this.technician.x, 2) + 
-                Math.pow(projectile.y - this.technician.y, 2)
-            );
             
-            if (distance < this.zapRange) {
+            // Check if projectile is above technician and within zap range horizontally
+            const horizontalDistance = Math.abs(projectile.x - caneTipX);
+            const verticalDistance = caneTipY - projectile.y;
+            
+            if (horizontalDistance < this.zapRange && verticalDistance > 0 && verticalDistance < 150) {
                 // Create zap effect
                 this.particles.push(new ZapEffect(projectile.x, projectile.y));
                 this.projectiles.splice(i, 1);
@@ -157,8 +164,15 @@ class Game {
     
     spawnProjectile() {
         if (Math.random() < this.projectileSpawnRate) {
-            const types = ['rust', 'water'];
-            const type = types[Math.floor(Math.random() * types.length)];
+            // Weighted random selection - water droplets are more common
+            const rand = Math.random();
+            let type;
+            if (rand < 0.6) {
+                type = 'water';
+            } else {
+                type = 'rust';
+            }
+            
             const x = Math.random() * (this.width - 40) + 20;
             this.projectiles.push(new Projectile(x, -20, type, this.projectileSpeed));
         }
@@ -288,17 +302,35 @@ class Game {
     }
     
     drawZapEffect() {
+        const caneTipX = this.technician.x + 10;
+        const caneTipY = this.technician.y - this.technician.height - 30;
+        
         this.ctx.strokeStyle = '#00ffff';
-        this.ctx.lineWidth = 3;
-        this.ctx.shadowBlur = 10;
+        this.ctx.lineWidth = 4;
+        this.ctx.shadowBlur = 15;
         this.ctx.shadowColor = '#00ffff';
         
+        // Draw lightning bolt from cane tip upward
         this.ctx.beginPath();
-        this.ctx.moveTo(this.technician.x, this.technician.y);
-        this.ctx.lineTo(this.technician.x + 20, this.technician.y - 20);
-        this.ctx.lineTo(this.technician.x - 20, this.technician.y - 40);
-        this.ctx.stroke();
+        this.ctx.moveTo(caneTipX, caneTipY);
         
+        // Create jagged lightning bolt pattern
+        let currentX = caneTipX;
+        let currentY = caneTipY;
+        const segments = 8;
+        const maxHeight = 100;
+        
+        for (let i = 0; i < segments; i++) {
+            const progress = i / segments;
+            const nextY = caneTipY - (maxHeight * progress);
+            const nextX = currentX + (Math.random() - 0.5) * 20;
+            
+            this.ctx.lineTo(nextX, nextY);
+            currentX = nextX;
+            currentY = nextY;
+        }
+        
+        this.ctx.stroke();
         this.ctx.shadowBlur = 0;
     }
     
@@ -351,20 +383,26 @@ class Technician {
         ctx.fillStyle = '#2F4F4F';
         ctx.fillRect(this.x - 10, this.y - this.height + 10, 20, 25);
         
-        // Draw cane
+        // Draw cane held above head
         ctx.strokeStyle = '#8B4513';
         ctx.lineWidth = 4;
         ctx.beginPath();
-        ctx.moveTo(this.x + 15, this.y - this.height + 20);
-        ctx.lineTo(this.x + 25, this.y - this.height + 5);
+        ctx.moveTo(this.x + 10, this.y - this.height + 20);
+        ctx.lineTo(this.x + 10, this.y - this.height - 30);
         ctx.stroke();
         
-        // Draw wire
+        // Draw cane tip
+        ctx.fillStyle = '#FFD700';
+        ctx.beginPath();
+        ctx.arc(this.x + 10, this.y - this.height - 30, 3, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Draw wire from backpack to cane
         ctx.strokeStyle = '#C0C0C0';
         ctx.lineWidth = 2;
         ctx.beginPath();
-        ctx.moveTo(this.x + 15, this.y - this.height + 20);
-        ctx.lineTo(this.x + 25, this.y - this.height + 5);
+        ctx.moveTo(this.x + 10, this.y - this.height + 20);
+        ctx.lineTo(this.x + 10, this.y - this.height - 30);
         ctx.stroke();
     }
 }
@@ -436,10 +474,19 @@ class Projectile {
         this.size = 20;
         this.damage = type === 'rust' ? 15 : 10;
         this.color = type === 'rust' ? '#8B4513' : '#87CEEB';
+        this.wiggleOffset = 0;
+        this.wiggleSpeed = 0.1;
+        this.originalX = x;
     }
     
     update() {
         this.y += this.speed;
+        
+        // Make rust monsters wiggle
+        if (this.type === 'rust') {
+            this.wiggleOffset += this.wiggleSpeed;
+            this.x = this.originalX + Math.sin(this.wiggleOffset) * 8;
+        }
     }
     
     render(ctx) {
@@ -447,7 +494,7 @@ class Projectile {
         ctx.beginPath();
         
         if (this.type === 'rust') {
-            // Draw rust monster
+            // Draw rust monster with wiggle
             ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
             ctx.fill();
             
@@ -457,9 +504,25 @@ class Projectile {
             ctx.arc(this.x - 5, this.y - 5, 3, 0, Math.PI * 2);
             ctx.arc(this.x + 5, this.y - 5, 3, 0, Math.PI * 2);
             ctx.fill();
-        } else {
+            
+            // Draw angry eyebrows
+            ctx.strokeStyle = '#FF0000';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(this.x - 8, this.y - 8);
+            ctx.lineTo(this.x - 3, this.y - 6);
+            ctx.moveTo(this.x + 3, this.y - 6);
+            ctx.lineTo(this.x + 8, this.y - 8);
+            ctx.stroke();
+        } else if (this.type === 'water') {
             // Draw water droplet
             ctx.ellipse(this.x, this.y, this.size / 2, this.size, 0, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Add water shine effect
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+            ctx.beginPath();
+            ctx.ellipse(this.x - 3, this.y - 5, this.size / 4, this.size / 3, 0, 0, Math.PI * 2);
             ctx.fill();
         }
     }
@@ -471,6 +534,25 @@ class ZapEffect {
         this.y = y;
         this.life = 20;
         this.maxLife = 20;
+        this.lightningSegments = [];
+        this.generateLightning();
+    }
+    
+    generateLightning() {
+        // Generate jagged lightning bolt pattern
+        const segments = 6;
+        this.lightningSegments = [{x: this.x, y: this.y}];
+        
+        for (let i = 1; i < segments; i++) {
+            const prev = this.lightningSegments[i - 1];
+            const angle = (Math.random() - 0.5) * Math.PI / 3; // Random angle within 60 degrees
+            const length = 15 + Math.random() * 10;
+            
+            this.lightningSegments.push({
+                x: prev.x + Math.cos(angle) * length,
+                y: prev.y + Math.sin(angle) * length
+            });
+        }
     }
     
     update() {
@@ -480,17 +562,18 @@ class ZapEffect {
     render(ctx) {
         const alpha = this.life / this.maxLife;
         ctx.strokeStyle = `rgba(0, 255, 255, ${alpha})`;
-        ctx.lineWidth = 3;
-        ctx.shadowBlur = 10;
+        ctx.lineWidth = 4;
+        ctx.shadowBlur = 15;
         ctx.shadowColor = '#00ffff';
         
         ctx.beginPath();
-        ctx.moveTo(this.x - 10, this.y - 10);
-        ctx.lineTo(this.x + 10, this.y + 10);
-        ctx.moveTo(this.x + 10, this.y - 10);
-        ctx.lineTo(this.x - 10, this.y + 10);
-        ctx.stroke();
+        ctx.moveTo(this.lightningSegments[0].x, this.lightningSegments[0].y);
         
+        for (let i = 1; i < this.lightningSegments.length; i++) {
+            ctx.lineTo(this.lightningSegments[i].x, this.lightningSegments[i].y);
+        }
+        
+        ctx.stroke();
         ctx.shadowBlur = 0;
     }
 }
