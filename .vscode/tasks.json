@@ -1,0 +1,17 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "open-in-browser",
+            "type": "shell",
+            "command": "start ${workspaceFolder}/src/index.html",
+            "windows": {
+                "command": "start ${workspaceFolder}/src/index.html"
+            },
+            "presentation": {
+                "reveal": "never"
+            },
+            "problemMatcher": []
+        }
+    ]
+}

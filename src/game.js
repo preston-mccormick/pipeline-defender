@@ -94,7 +94,7 @@ class Game {
         this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
 
         // Load bull.wav file for bullhorn sound
-        this.bullhornAudio = new Audio('bull.wav');
+        this.bullhornAudio = new Audio('assets/audio/bull.wav');
         this.bullhornAudio.preload = 'auto';
 
         this.sounds = {
@@ -2427,7 +2427,7 @@ class AiBombSequenceEffect {
         this.maxLife = 300;
         this.currentImage = 0;
         this.imageDuration = 60; // 1 second per image
-        this.images = ['PCS.jpg', 'SurveryManager.jpg', 'FDC.jpg', 'Bullhorn.png', 'CartoPac2.jpg'];
+        this.images = ['assets/images/PCS.jpg', 'assets/images/SurveryManager.jpg', 'assets/images/FDC.jpg', 'assets/images/Bullhorn.png', 'assets/images/CartoPac2.jpg'];
         this.loadedImages = [];
         this.pulseScale = 1;
         this.pulseDirection = 1;

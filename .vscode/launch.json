@@ -1,0 +1,11 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug in Chrome",
+            "type": "chrome",
+            "request": "launch",
+            "file": "${workspaceFolder}/src/index.html"
+        }
+    ]
+}
