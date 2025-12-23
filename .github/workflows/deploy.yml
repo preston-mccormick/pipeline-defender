@@ -30,11 +30,7 @@ jobs:
       - name: Copy files to deployment directory
         run: |
           mkdir -p _site
-          cp -r src/* _site/
-          echo "Files copied:"
-          ls -la _site/
-          echo "Checking for index.html:"
-          ls -la _site/index.html || echo "index.html not found!"
+          cp --recursive --verbose src/* _site/ 
       
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
