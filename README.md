@@ -2,7 +2,7 @@
 
 A fast-paced arcade-style defense game where you play as a technician protecting a pipeline from rust monsters and water droplets using a high-tech zapper cane.
 
-![Pipeline Defender Screenshot](Screenshot.png)
+![Pipeline Defender Screenshot](docs/Screenshot.png)
 
 ## Game Description
 
