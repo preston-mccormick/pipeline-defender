@@ -29,14 +29,12 @@ jobs:
       
       - name: Copy files to deployment directory
         run: |
-          mkdir -p _site/pipeline-defender
-          cp -r src/* _site/pipeline-defender/
-          # Add .nojekyll to prevent Jekyll processing
-          touch _site/.nojekyll
+          mkdir -p _site
+          cp -r src/* _site/
           echo "Files copied:"
-          ls -la _site/pipeline-defender/
+          ls -la _site/
           echo "Checking for index.html:"
-          ls -la _site/pipeline-defender/index.html || echo "index.html not found!"
+          ls -la _site/index.html || echo "index.html not found!"
       
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
